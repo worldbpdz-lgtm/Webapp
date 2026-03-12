@@ -1,0 +1,628 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AnalyticsDaily {
+  id        String             @id
+  shopId    String
+  day       DateTime           @db.Date
+  type      AnalyticsEventType
+  dimension AnalyticsDimension @default(none)
+  key       String?
+  count     Int                @default(0)
+  updatedAt DateTime           @db.Timestamptz(6)
+  Shop      Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, day, type, dimension, key])
+  @@index([shopId, day])
+}
+
+model AnalyticsEvent {
+  id        String             @id
+  shopId    String
+  type      AnalyticsEventType
+  roleType  RoleType?
+  formId    String?
+  placement Placement?
+  pageUrl   String?
+  referrer  String?
+  requestId String?
+  meta      Json?
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  Form      Form?              @relation(fields: [formId], references: [id])
+  Request   Request?           @relation(fields: [requestId], references: [id])
+  Shop      Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([shopId, createdAt])
+  @@index([shopId, type, createdAt])
+}
+
+model Embed {
+  id             String            @id
+  shopId         String
+  formId         String?
+  locationType   EmbedLocationType
+  selectorOrPath String?
+  active         Boolean           @default(true)
+  key            String            @default("default")
+  settings       Json?
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime          @db.Timestamptz(6)
+  Form           Form?             @relation(fields: [formId], references: [id])
+  Shop           Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, locationType, key])
+  @@index([shopId, active])
+  @@index([shopId, locationType])
+}
+
+model Form {
+  id             String           @id
+  shopId         String
+  name           String
+  slug           String
+  status         FormStatus       @default(draft)
+  placement      Placement
+  ui             Json?
+  isActive       Boolean          @default(false)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @db.Timestamptz(6)
+  AnalyticsEvent AnalyticsEvent[]
+  Embed          Embed[]
+  Shop           Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  FormField      FormField[]
+  Request        Request[]
+  Role           Role[]
+  SheetsMapping  SheetsMapping[]
+  ShopSettings   ShopSettings[]
+
+  @@unique([shopId, slug])
+  @@index([shopId, isActive])
+  @@index([shopId, status])
+}
+
+model FormField {
+  id           String    @id
+  formId       String
+  type         FieldType
+  label        String
+  nameKey      String
+  placeholder  String?
+  helpText     String?
+  required     Boolean   @default(false)
+  visible      Boolean   @default(true)
+  orderIndex   Int
+  options      Json?
+  validation   Json?
+  errorMessage String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @db.Timestamptz(6)
+  Form         Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, nameKey])
+  @@index([formId, orderIndex])
+}
+
+model GeoCommune {
+  id         String    @id
+  wilayaCode Int
+  nameFr     String
+  nameAr     String
+  GeoWilaya  GeoWilaya @relation(fields: [wilayaCode], references: [code], onDelete: Cascade)
+  Request    Request[]
+
+  @@unique([wilayaCode, nameFr])
+  @@index([wilayaCode, nameAr])
+  @@index([wilayaCode, nameFr])
+}
+
+model GeoWilaya {
+  code       Int          @id
+  nameFr     String
+  nameAr     String
+  GeoCommune GeoCommune[]
+  Request    Request[]
+
+  @@index([nameAr])
+  @@index([nameFr])
+}
+
+model NotificationRecipient {
+  id        String   @id
+  shopId    String
+  email     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @db.Timestamptz(6)
+  Shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, email])
+  @@index([shopId, active])
+}
+
+model OAuthGoogle {
+  id              String   @id
+  shopId          String   @unique
+  accessTokenEnc  String
+  refreshTokenEnc String
+  expiresAt       DateTime @db.Timestamptz(6)
+  scope           String?
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @db.Timestamptz(6)
+  Shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+}
+
+model PixelEventLog {
+  id        String           @id
+  shopId    String
+  platform  PixelPlatform
+  event     String
+  status    PixelEventStatus
+  payload   Json?
+  error     String?
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  Shop      Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, platform, createdAt])
+}
+
+model Request {
+  id                String              @id
+  shopId            String
+  status            RequestStatus       @default(received)
+  idempotencyKey    String?
+  roleType          RoleType
+  roleId            String?
+  formId            String?
+  firstName         String?
+  lastName          String?
+  email             String?
+  phone             String?
+  country           String?
+  address           String?
+  zip               String?
+  wilayaCode        Int?
+  communeId         String?
+  pageUrl           String?
+  referrer          String?
+  ip                String?
+  userAgent         String?
+  productId         String?
+  variantId         String?
+  qty               Int?
+  values            Json?
+  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime            @db.Timestamptz(6)
+  AnalyticsEvent    AnalyticsEvent[]
+  GeoCommune        GeoCommune?         @relation(fields: [communeId], references: [id])
+  Form              Form?               @relation(fields: [formId], references: [id])
+  Role              Role?               @relation(fields: [roleId], references: [id])
+  Shop              Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  GeoWilaya         GeoWilaya?          @relation(fields: [wilayaCode], references: [code])
+  RequestAttachment RequestAttachment[]
+  RequestItem       RequestItem[]
+  SheetsSyncLog     SheetsSyncLog[]
+
+  @@unique([shopId, idempotencyKey])
+  @@index([shopId, createdAt])
+  @@index([shopId, productId, createdAt])
+  @@index([shopId, roleType, createdAt])
+  @@index([shopId, status, createdAt])
+  @@index([shopId, wilayaCode, createdAt])
+}
+
+model RequestAttachment {
+  id             String   @id
+  requestId      String
+  uploadId       String
+  requirementKey String?
+  label          String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  Request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  Upload         Upload   @relation(fields: [uploadId], references: [id])
+
+  @@index([requestId])
+  @@index([requirementKey])
+  @@index([uploadId])
+}
+
+model RequestItem {
+  id        String   @id
+  requestId String
+  productId String
+  variantId String?
+  qty       Int
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  Request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([requestId])
+}
+
+model Role {
+  id              String            @id
+  shopId          String
+  type            RoleType
+  title           String
+  description     String?
+  active          Boolean           @default(true)
+  ui              Json?
+  formId          String?
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @db.Timestamptz(6)
+  Request         Request[]
+  Form            Form?             @relation(fields: [formId], references: [id])
+  Shop            Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  RoleRequirement RoleRequirement[]
+
+  @@unique([shopId, type])
+  @@index([shopId, active])
+  @@index([shopId, type])
+}
+
+model RoleRequirement {
+  id                String   @id
+  roleId            String
+  key               String
+  label             String
+  description       String?
+  required          Boolean  @default(true)
+  acceptedMimeTypes String[] @default([])
+  maxSizeBytes      Int?
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @db.Timestamptz(6)
+  Role              Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, key])
+  @@index([roleId])
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean   @default(false)
+  emailVerified       Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+
+  @@index([shop])
+}
+
+model SheetsConnection {
+  id               String          @id
+  shopId           String
+  spreadsheetId    String
+  spreadsheetName  String?
+  defaultSheetName String?
+  active           Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @db.Timestamptz(6)
+  Shop             Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  SheetsMapping    SheetsMapping[]
+  SheetsSyncLog    SheetsSyncLog[]
+  ShopSettings     ShopSettings[]
+
+  @@unique([shopId, spreadsheetId])
+  @@index([shopId, active])
+}
+
+model SheetsMapping {
+  id               String           @id
+  connectionId     String
+  formId           String?
+  roleType         RoleType?
+  mapping          Json
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime         @db.Timestamptz(6)
+  SheetsConnection SheetsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  Form             Form?            @relation(fields: [formId], references: [id])
+
+  @@index([connectionId])
+  @@index([formId])
+  @@index([roleType])
+}
+
+model SheetsSyncLog {
+  id               String           @id
+  connectionId     String
+  requestId        String
+  status           SheetSyncStatus
+  error            String?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  SheetsConnection SheetsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  Request          Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, createdAt])
+  @@index([requestId])
+  @@index([status, createdAt])
+}
+
+model Shop {
+  id                    String                  @id
+  shopDomain            String                  @unique
+  accessTokenEnc        String?
+  scope                 String?
+  timezone              String?
+  installedAt           DateTime?               @db.Timestamptz(6)
+  uninstalledAt         DateTime?               @db.Timestamptz(6)
+  createdAt             DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                @db.Timestamptz(6)
+  DashboardSettings     DashboardSettings?
+  Viewer                Viewer[]
+  AnalyticsDaily        AnalyticsDaily[]
+  AnalyticsEvent        AnalyticsEvent[]
+  Embed                 Embed[]
+  Form                  Form[]
+  NotificationRecipient NotificationRecipient[]
+  OAuthGoogle           OAuthGoogle?
+  PixelEventLog         PixelEventLog[]
+  Request               Request[]
+  Role                  Role[]
+  SheetsConnection      SheetsConnection[]
+  ShopSettings          ShopSettings?
+  ThemeContext          ThemeContext[]
+  TrackingPixel         TrackingPixel[]
+  Upload                Upload[]
+  DashboardUser         DashboardUser[]
+  ShopMember            ShopMember[]
+
+  @@index([installedAt])
+}
+
+model Viewer {
+  id        String   @id
+  shopId    String
+  email     String
+  name      String?
+  role      String   @default("staff") // "staff" | "admin" | "owner"
+  perms     Json     @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  Shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, email])
+  @@index([shopId])
+}
+
+model ShopSettings {
+  shopId                    String            @id
+  currency                  String?
+  dfLang                    String?
+  emailFrom                 String?
+  showPriceForIndividuals   Boolean           @default(false)
+  currentFormId             String?
+  primarySheetsConnectionId String?
+  createdAt                 DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime          @db.Timestamptz(6)
+  Form                      Form?             @relation(fields: [currentFormId], references: [id])
+  SheetsConnection          SheetsConnection? @relation(fields: [primarySheetsConnectionId], references: [id])
+  Shop                      Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([currentFormId])
+  @@index([primarySheetsConnectionId])
+}
+
+model ThemeContext {
+  id           String    @id
+  shopId       String
+  themeId      String
+  themeName    String?
+  role         String?
+  lastSyncedAt DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  Shop         Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, themeId])
+  @@index([shopId, themeId])
+}
+
+model TrackingPixel {
+  id             String        @id
+  shopId         String
+  platform       PixelPlatform
+  pixelId        String
+  enabled        Boolean       @default(true)
+  events         Json?
+  apiEnabled     Boolean       @default(false)
+  accessTokenEnc String?
+  testCode       String?
+  lastFiredAt    DateTime?     @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @db.Timestamptz(6)
+  Shop           Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, platform])
+  @@index([shopId, enabled])
+}
+
+model Upload {
+  id                String              @id
+  shopId            String
+  provider          StorageProvider     @default(supabase)
+  bucket            String
+  path              String
+  url               String?
+  mimeType          String?
+  sizeBytes         Int?
+  checksum          String?
+  purpose           UploadPurpose       @default(role_document)
+  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
+  RequestAttachment RequestAttachment[]
+  Shop              Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, provider, bucket, path])
+  @@index([shopId, createdAt])
+}
+
+model DashboardSettings {
+  id     String @id @default(cuid())
+  shopId String @unique
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  workspaceName String?
+
+  appearance    Json?
+  navigation    Json?
+  notifications Json?
+  security      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DashboardUser {
+  id        String   @id // Supabase auth user id (uuid string)
+  shopId    String
+  email     String?
+  name      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  Shop       Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  ShopMember ShopMember[]
+
+  @@index([shopId])
+  @@index([email])
+}
+
+model ShopMember {
+  id          String     @id @default(cuid())
+  shopId      String
+  userId      String
+  role        MemberRole @default(member)
+  active      Boolean    @default(true)
+  permissions Json? // ✅ store full permissions object
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(6)
+
+  Shop Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  User DashboardUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, userId])
+  @@index([shopId, active])
+  @@index([userId])
+}
+
+enum MemberRole {
+  owner
+  admin
+  member
+}
+
+enum AnalyticsDimension {
+  none
+  role
+  form
+  placement
+  page
+}
+
+enum AnalyticsEventType {
+  form_opened
+  role_selected
+  request_submitted
+  request_sync_success
+  request_sync_failed
+}
+
+enum EmbedLocationType {
+  theme_app_embed
+  app_block
+  script_tag
+  headless
+}
+
+enum FieldType {
+  text
+  email
+  tel
+  number
+  textarea
+  select
+  multiselect
+  checkbox
+  radio
+  file
+  date
+  hidden
+}
+
+enum FormStatus {
+  draft
+  active
+  archived
+}
+
+enum NotificationTrigger {
+  request_received
+}
+
+enum PixelEventStatus {
+  success
+  failed
+}
+
+enum PixelPlatform {
+  facebook
+  tiktok
+  google
+}
+
+enum Placement {
+  inline
+  popup
+  slidein
+  landing
+}
+
+enum RequestStatus {
+  received
+  in_review
+  contacted
+  confirmed
+  cancelled
+  spam
+  archived
+}
+
+enum RoleType {
+  individual
+  installer
+  company
+}
+
+enum SheetSyncStatus {
+  queued
+  success
+  failed
+}
+
+enum StorageProvider {
+  supabase
+  s3
+}
+
+enum UploadPurpose {
+  role_document
+  other
+}
