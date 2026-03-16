@@ -10,11 +10,7 @@ function makeClient() {
 
   const adapter = new PrismaPg({
     connectionString,
-
-    // ✅ If your network/antivirus injects a self-signed cert, this prevents failing.
     ssl: { rejectUnauthorized: false },
-
-    // ✅ keep it tiny; you're already behind Supabase pooler
     max: 3,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 30_000,
